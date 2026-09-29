@@ -187,17 +187,32 @@ const readBody = (req) => new Promise((resolve, reject) => {
   req.on('error', reject);
 });
 
-// Minimal streaming proxy for the dsh web UI (http, loopback target).
+// Streaming proxy for the dsh web UI (http, loopback target). Handles the
+// websocket upgrade too — the workspace panel uses one.
 const proxyWeb = (req, res, target) => {
   const u = new URL(target);
   const headers = { ...req.headers, host: u.host };
   delete headers['origin'];
   delete headers['referer'];
+  if (headers.upgrade === 'websocket') {
+    const key = headers['sec-websocket-key'];
+    const preq = http.request({ host: u.hostname, port: u.port, path: u.pathname + u.search, method: req.method, headers });
+    preq.on('upgrade', (pres, socket) => {
+      const lines = [`HTTP/1.1 101 Switching Protocols`];
+      for (const [k, v] of Object.entries(pres.headers)) lines.push(`${k}: ${v}`);
+      res.socket.write(lines.join('\r\n') + '\r\n\r\n');
+      res.socket.pipe(socket);
+      socket.pipe(res.socket);
+    });
+    preq.on('error', () => { try { res.writeHead(502).end('dsh is not running'); } catch {} });
+    preq.end();
+    return;
+  }
   const preq = http.request({ host: u.hostname, port: u.port, path: u.pathname + u.search, method: req.method, headers }, (pres) => {
     res.writeHead(pres.statusCode ?? 502, pres.headers);
     pres.pipe(res);
   });
-  preq.on('error', () => { res.writeHead(502).end('dsh is not running'); });
+  preq.on('error', () => { try { res.writeHead(502).end('dsh is not running'); } catch {} });
   req.pipe(preq);
 };
 
