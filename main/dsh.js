@@ -45,7 +45,10 @@ const writeSettingsAt = (p, baseUrl, models, defaultModel) => {
   fs.renameSync(tmp, p);
 };
 
-const writeSettings = (baseUrl, models, defaultModel) => writeSettingsAt(settingsPath(), baseUrl, models, defaultModel);
+const writeSettings = (baseUrl, models, defaultModel) => {
+  fs.mkdirSync(HOME, { recursive: true, mode: 0o700 });
+  return writeSettingsAt(settingsPath(), baseUrl, models, defaultModel);
+};
 
 const addWorkspace = (dir) => {
   const file = path.join(HOME, 'storages', 'workspace.json');
