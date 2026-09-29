@@ -80,7 +80,7 @@ const logFile = () => path.join(HOME, 'web.log');
 // If dsh is missing the promise rejects with a clear message; nothing else is
 // installed or modified.
 const ensure = async ({ baseUrl, models, defaultModel, cwd, dshBin }) => {
-  if (!dshBin || !fs.existsSync(dshBin)) throw new Error('dsh is not installed (npx @deepseek-ai/dsh web is the upstream launcher)');
+  if (!dshBin || !fs.existsSync(dshBin)) throw new Error('dsh is not installed — install it with: npm i -g @deepseek-ai/dsh (or npx @deepseek-ai/dsh web)');
   writeSettings(baseUrl, models, defaultModel);
   if (child || (await probe())) return { ok: true, url: `http://127.0.0.1:${PORT}/`, detail: child ? 'harness running' : 'something already answers on the dsh port' };
   fs.mkdirSync(cwd, { recursive: true });
