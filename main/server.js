@@ -65,7 +65,8 @@ const snapshot = async () => {
 const routes = {
   snapshot,
   'sync-registry': async () => { const info = await registry.syncRegistry(); return snapshot(); },
-  load: async (recipeId) => {
+  load: async (arg) => {
+    const recipeId = typeof arg === 'string' ? arg : arg?.recipeId;
     const recipe = registry.buildRecipe(recipeId, { groups: detectedGroups });
     const res = await container.runRecipe(recipe, { groups: detectedGroups }, registry.REGISTRY_DIR);
     writeActive({ recipeId, recipe, port: container.PORT, startedAt: new Date().toISOString() });
@@ -76,7 +77,8 @@ const routes = {
     fs.rmSync(ACTIVE_FILE, { force: true });
     return res;
   },
-  download: async (recipeId) => {
+  download: async (arg) => {
+    const recipeId = typeof arg === 'string' ? arg : arg?.recipeId;
     const recipe = registry.buildRecipe(recipeId, { groups: detectedGroups });
     const plan = container.downloadPlan(recipe, registry.REGISTRY_DIR);
     await new Promise((resolve, reject) => execFile('docker', plan.pull, { timeout: 3_600_000 }, (e) => e ? reject(e) : resolve()));
@@ -105,11 +107,31 @@ const routes = {
   'stop-dsh': () => dsh.stop(),
 };
 
+const SHIM = `
+window.hub = {
+  snapshot: () => hubCall('snapshot'),
+  syncRegistry: () => hubCall('sync-registry'),
+  load: (id) => hubCall('load', id),
+  unload: () => hubCall('unload'),
+  download: (id) => hubCall('download', id),
+  probeEndpoint: () => hubCall('probe-endpoint'),
+  openDsh: (cwd) => hubCall('open-dsh', cwd ? { cwd } : {}),
+  stopDsh: () => hubCall('stop-dsh'),
+};
+async function hubCall(route, arg) {
+  const res = await fetch('/rpc/' + route, {
+    method: arg === undefined ? 'GET' : 'POST',
+    body: arg === undefined ? undefined : JSON.stringify(arg),
+    headers: { 'Content-Type': 'application/json' },
+  });
+  return res.json();
+}`;
+
 const renderPage = () => {
-  let html = fs.readFileSync(path.join(__dirname, 'renderer', 'index.html'), 'utf8');
-  // webview tag is electron-only; in a browser the harness opens in an iframe
-  html = html.replace('<script src="ui.js"></script>', '<script src="ui.js"></script><script>window.HUB_WEB=1;</script>');
-  return html;
+  const html = fs.readFileSync(path.join(__dirname, 'renderer', 'index.html'), 'utf8');
+  // webview tag is electron-only; in a browser the harness opens in an iframe.
+  // Inject the RPC shim before ui.js; ui.js itself ships unmodified.
+  return html.replace('<script src="ui.js"></script>', `<script>${SHIM}</script><script src="ui.js"></script>`);
 };
 
 const server = http.createServer(async (req, res) => {
@@ -125,23 +147,16 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   if (req.method === 'GET' && url.pathname === '/ui.js') {
-    let js = fs.readFileSync(path.join(__dirname, 'renderer', 'ui.js'), 'utf8');
-    js = js.replace(/hub\.(snapshot|syncRegistry|load|unload|download|probeEndpoint|openDsh|stopDsh)/g,
-      (_m, name) => `hubCall('${name.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase())}'`);
-    res.writeHead(200, { 'Content-Type': 'text/javascript' }).end(js + `
-async function hubCall(route, arg) {
-  const method = arg === undefined ? 'GET' : 'POST';
-  const body = arg === undefined ? undefined : JSON.stringify(arg === true ? {} : arg);
-  const res = await fetch('/rpc/' + route, { method, body, headers: { 'Content-Type': 'application/json' } });
-  return res.json();
-}`);
+    const js = fs.readFileSync(path.join(__dirname, 'renderer', 'ui.js'), 'utf8');
+    res.writeHead(200, { 'Content-Type': 'text/javascript' }).end(js);
     return;
   }
   const m = url.pathname.match(/^\/rpc\/([\w-]+)$/);
   if (m && routes[m[1]]) {
     const arg = req.method === 'POST' ? await readBody(req) : undefined;
     try {
-      const data = await routes[m[1]](arg === undefined ? undefined : (typeof arg === 'object' && arg !== null && !Array.isArray(arg) && 'recipeId' in arg ? arg.recipeId : arg));
+      // POST bodies: {recipeId} for load/download, {cwd} for open-dsh
+      const data = await routes[m[1]](arg);
       res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ ok: true, data }));
     } catch (e) {
       res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ ok: false, error: e.message ?? String(e) }));
