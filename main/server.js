@@ -43,7 +43,7 @@ const snapshot = async () => {
   stats.modelRunning = stats.modelRunning && Boolean(active);
   let models = [];
   let registryInfo = { path: registry.REGISTRY_DIR, recipeCount: 0, totalRecipeCount: 0, synced: false };
-  if (fs.existsSync(path.join(registry.REGISTRY_DIR, 'index.json'))) {
+  if (fs.existsSync(registry.REGISTRY_DIR + '/index.json') || fs.existsSync(registry.REGISTRY_DIR + '/data/registry/index/recipes.json')) {
     const info = registry.loadRegistry();
     registryInfo = { ...info, synced: true };
     const enriched = registry.recipesForHardware({ groups: stats.groups, activeRecipeId: stats.activeRecipeId });

@@ -26,8 +26,23 @@ const readJson = (file) => {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
 };
 
+// Two upstream layouts:
+//  old: <dir>/index.json + <dir>/{recipe,model,model-instance,hardware}/
+//  new: <dir>/data/registry/index/recipes.json + <dir>/data/registry/{...}/
+const layout = (dir = REGISTRY_DIR) => {
+  if (fs.existsSync(path.join(dir, 'index.json'))) {
+    return { indexFile: path.join(dir, 'index.json'), records: dir };
+  }
+  if (fs.existsSync(path.join(dir, 'data', 'registry', 'index', 'recipes.json'))) {
+    return { indexFile: path.join(dir, 'data', 'registry', 'index', 'recipes.json'), records: path.join(dir, 'data', 'registry') };
+  }
+  return null;
+};
+
 const validateRegistry = (dir) => {
-  const index = readJson(path.join(dir, 'index.json'));
+  const lay = layout(dir);
+  if (!lay) throw new Error(`registry index not found under ${dir}`);
+  const index = readJson(lay.indexFile);
   if (index.schema_version !== 'local-ai-registry/v1') throw new Error('unknown registry schema');
   if (!Array.isArray(index.recipes) || index.recipes.length === 0) throw new Error('registry has no recipes');
   return index;
@@ -69,16 +84,18 @@ const arg = (recipe, name) => {
 };
 
 const buildRecipe = (recipeId, detected) => {
-  const recipe = readJson(path.join(REGISTRY_DIR, 'recipe', `${recipeId}.json`));
+  const lay = layout();
+  const records = lay.records;
+  const recipe = readJson(path.join(records, 'recipe', `${recipeId}.json`));
   if (recipe.status !== 'validated') throw new Error(`${recipeId} is not validated`);
   const launch = recipe.launch;
   if (launch?.kind !== 'docker') throw new Error(`${recipeId} is not a docker recipe`);
   const image = launch.image ?? launch.container?.image ?? null;
   if (!image || !/^[^@]+@sha256:[0-9a-f]{64}$/.test(image)) throw new Error(`${recipeId} has no digest-pinned image`);
-  const instance = readJson(path.join(REGISTRY_DIR, 'model-instance', `${recipe.model_instance_id}.json`));
+  const instance = readJson(path.join(records, 'model-instance', `${recipe.model_instance_id}.json`));
   if (!/^[0-9a-f]{40,64}$/.test(instance.revision)) throw new Error(`${recipeId} has no pinned model revision`);
-  const model = readJson(path.join(REGISTRY_DIR, 'model', `${instance.model_id}.json`));
-  const hardware = readJson(path.join(REGISTRY_DIR, 'hardware', `${recipe.hardware_id}.json`));
+  const model = readJson(path.join(records, 'model', `${instance.model_id}.json`));
+  const hardware = readJson(path.join(records, 'hardware', `${recipe.hardware_id}.json`));
   const args = launch.arguments ?? [];
   const badArgs = args.filter((a) => /disable.*cuda.*graph|enforce.eager/i.test(a));
   if (badArgs.length) throw new Error(`${recipeId} disables CUDA graphs; refused`);
@@ -138,8 +155,7 @@ const buildRecipe = (recipeId, detected) => {
 // match the recipe's registry hardware record and provide enough devices.
 const recipesForHardware = (detected) => {
   const index = validateRegistry(REGISTRY_DIR);
-  const out = [];
-  for (const entry of index.recipes) {
+  const out = [];  for (const entry of index.recipes) {
     if (entry.status !== 'validated' || entry.launch_kind !== 'docker') continue;
     try {
       const built = buildRecipe(entry.id, detected);

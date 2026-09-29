@@ -61,11 +61,14 @@ const appleGroup = async () => {
 };
 
 // Match detected groups against registry hardware ids so recipes resolve.
+// Works for both upstream layouts (records at <dir> or <dir>/data/registry).
 const annotate = async (groups, registryDir) => {
   let known = [];
   try {
-    const files = fs.readdirSync(path.join(registryDir, 'hardware')).filter((f) => f.endsWith('.json'));
-    known = files.map((f) => JSON.parse(fs.readFileSync(path.join(registryDir, 'hardware', f), 'utf8')));
+    const candidates = [path.join(registryDir, 'hardware'), path.join(registryDir, 'data', 'registry', 'hardware')];
+    const dir = candidates.find((c) => { try { return fs.statSync(c).isDirectory(); } catch { return false; } });
+    const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json'));
+    known = files.map((f) => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')));
   } catch { /* registry missing; ids stay empty */ }
   return groups.map((g) => {
     const match = known.find((h) =>
