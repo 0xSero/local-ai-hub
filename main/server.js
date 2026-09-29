@@ -45,7 +45,7 @@ const snapshot = async () => {
   let registryInfo = { path: registry.REGISTRY_DIR, recipeCount: 0, totalRecipeCount: 0, synced: false };
   if (fs.existsSync(registry.REGISTRY_DIR + '/index.json') || fs.existsSync(registry.REGISTRY_DIR + '/data/registry/index/recipes.json')) {
     const info = registry.loadRegistry();
-    registryInfo = { ...info, synced: true };
+    registryInfo = { ...info, synced: true, totalRecipeCount: info.recipes };
     const enriched = registry.recipesForHardware({ groups: stats.groups, activeRecipeId: stats.activeRecipeId });
     const downloads = await Promise.all(enriched.map(async (r) => ({
       id: r.id,

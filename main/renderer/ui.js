@@ -42,7 +42,7 @@ const renderStats = (stats) => {
   $('reginfo').innerHTML = kv([
     ['Source', '<code>0xSero/local-ai-registry</code>'],
     ['Commit', esc(snapshotCache?.registry?.commit ?? '—')],
-    ['Recipes', `${snapshotCache?.models?.length ?? 0} compatible / ${snapshotCache?.registry?.totalRecipeCount ?? 0} total`],
+    ['Recipes', `${snapshotCache?.models?.length ?? 0} compatible / ${snapshotCache?.registry?.recipes ?? snapshotCache?.registry?.totalRecipeCount ?? 0} total`],
     ['Synced', snapshotCache?.registry?.synced ? '<span class="tag ok">yes</span>' : '<span class="tag warn">not yet — press Sync</span>'],
   ]);
 };
