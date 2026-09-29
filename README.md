@@ -18,6 +18,16 @@ First launch: press **Sync registry** to clone
 `0xSero/local-ai-registry` into `~/local-ai-hub/registry` (fast-forward only on
 later syncs; local edits are refused, never overwritten).
 
+## Deploy to a machine
+
+On any fleet host (Linux with a GPU + docker):
+
+    git clone https://github.com/0xSero/local-ai-hub.git
+    cd local-ai-hub && npm install
+    # Electron needs a real display (X11/Wayland); on headless hosts run:
+    #   ELECTRON_DISABLE_SECURITY_WARNINGS=1 electron . --no-sandbox
+    # or use the X quirk below. macOS: plain `npm start`.
+
 ## What it does
 
 1. **This machine** — CPU, RAM, disk, accelerators (NVIDIA / Intel Arc / Apple
