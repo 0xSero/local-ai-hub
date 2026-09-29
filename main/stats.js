@@ -15,6 +15,12 @@ const run = (cmd, args, timeout = 10_000) =>
 
 const norm = (s) => s.toLowerCase().replace(/nvidia|geforce|intel|generation|workstation|edition|[0-9]+gb|[^a-z0-9]/g, '');
 
+// DGX Spark's nvidia-smi reports "NVIDIA GB10"; the registry knows the whole
+// product. Keep a small alias table for names that cannot be matched purely.
+const EXTRA_ALIASES = {
+  gb10: 'dgx spark gb10',
+};
+
 const nvidiaGroups = async () => {
   const out = await run('nvidia-smi', [
     '--query-gpu=index,name,memory.total,memory.used,memory.free',
@@ -71,9 +77,10 @@ const annotate = async (groups, registryDir) => {
     known = files.map((f) => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')));
   } catch { /* registry missing; ids stay empty */ }
   return groups.map((g) => {
+    const productVariants = [g.product, EXTRA_ALIASES[norm(g.product)] ?? null].filter(Boolean);
     const match = known.find((h) =>
       h.accelerator_backend === g.backend &&
-      (norm(h.name) === norm(g.product) || (h.aliases ?? []).some((a) => norm(a) === norm(g.product))) &&
+      (productVariants.some((p) => norm(h.name) === norm(p)) || (h.aliases ?? []).some((a) => productVariants.some((p) => norm(a) === norm(p)))) &&
       Math.abs((h.memory?.vram_gb ?? 0) * 1024 - g.memoryBytesEach / 1048576) <= 1024);
     return { ...g, registryId: match?.id ?? '', registryName: match?.name ?? '' };
   });
