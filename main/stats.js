@@ -105,7 +105,7 @@ const stats = async (registryDir, containerName) => {
     cpuModel: os.cpus()[0]?.model ?? '',
     totalMemBytes: os.totalmem(),
     freeMemBytes: os.freemem(),
-    diskFreeBytes,
+    diskFreeBytes: diskFreeBytes(),
     dockerReady: await dockerAvailable(),
     modelRunning: await containerRunning(containerName),
     groups,
