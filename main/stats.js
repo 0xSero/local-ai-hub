@@ -86,11 +86,17 @@ const containerRunning = async (name) => {
   return (out ?? '').trim() === 'true';
 };
 
+const diskFreeBytes = () => {
+  const home = os.homedir();
+  const out = require('node:child_process').execSync(`df -Pk ${JSON.stringify(home)} 2>/dev/null`).toString();
+  const line = out.split('\n')[1] ?? '';
+  const cols = line.trim().split(/\s+/);
+  return (Number.parseInt(cols[3], 10) || 0) * 1024;
+};
+
 const stats = async (registryDir, containerName) => {
   const [nv, ix, ap] = await Promise.all([nvidiaGroups(), intelGroups(), appleGroup()]);
   const groups = await annotate([...nv, ...ix, ...ap], registryDir);
-  let diskFreeBytes = 0;
-  try { diskFreeBytes = fs.statSync(os.homedir()).dev && Number.parseInt(require('node:child_process').execSync('df -Pk ~ | awk \'NR==2{print $4*1024}\'').toString().trim(), 10) || 0; } catch { /* keep 0 */ }
   return {
     platform: process.platform,
     host: os.hostname(),
@@ -108,4 +114,4 @@ const stats = async (registryDir, containerName) => {
   };
 };
 
-module.exports = { stats, dockerAvailable, containerRunning, nvidiaGroups, appleGroup };
+module.exports = { stats, dockerAvailable, containerRunning, nvidiaGroups, appleGroup, diskFreeBytes };
