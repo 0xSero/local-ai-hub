@@ -111,13 +111,18 @@ const startHarness = async () => {
   const cwd = $('dsh-cwd').value.trim();
   const data = await doAction('Opening harness', () => hub.openDsh(cwd || undefined));
   if (data?.url) mountHarness(data.url);
+  else if (typeof data === 'object' && data?.ok && data.url) mountHarness(data.url);
 };
 
 let harnessUrl = null;
 const mountHarness = (url) => {
   harnessUrl = url;
-  $('harness').innerHTML = `<webview src="${esc(url)}" allowpopups></webview>`;
-  $('harness-empty')?.remove();
+  const isElectron = navigator.userAgent.includes('Electron');
+  $('harness').innerHTML = isElectron
+    ? `<webview src="${esc(url)}" allowpopups></webview>`
+    : `<iframe src="${esc(url)}" style="width:100%;height:70vh;border:0"></iframe>`;
+  const empty = $('harness-empty');
+  if (empty) empty.remove();
 };
 const unmountHarness = () => {
   harnessUrl = null;
