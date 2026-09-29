@@ -159,6 +159,12 @@ const server = http.createServer(async (req, res) => {
     proxyWeb(req, res, target);
     return;
   }
+  // dsh's client uses absolute paths (/api/..., /assets/...); anything the hub
+  // does not own goes to dsh so the embedded UI works.
+  if (!['/', '/ui.js'].includes(url.pathname) && !url.pathname.startsWith('/rpc/') && !url.pathname.startsWith('/dsh/')) {
+    proxyWeb(req, res, `http://127.0.0.1:${dsh.PORT}${url.pathname}${url.search}`);
+    return;
+  }
   const m = url.pathname.match(/^\/rpc\/([\w-]+)$/);
   if (m && routes[m[1]]) {
     const arg = req.method === 'POST' ? await readBody(req) : undefined;
