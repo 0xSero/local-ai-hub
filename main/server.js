@@ -152,7 +152,7 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/javascript' }).end(js);
     return;
   }
-  if (req.method === 'GET' && url.pathname.startsWith('/dsh/')) {
+  if (url.pathname.startsWith('/dsh/')) {
     // reverse-proxy the dsh web UI onto this origin so the iframe is same-origin
     // and the token cookie applies cleanly.
     const target = `http://127.0.0.1:${dsh.PORT}${url.pathname.replace(/^\/dsh/, '')}${url.search}`;
