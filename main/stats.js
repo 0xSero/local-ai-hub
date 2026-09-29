@@ -27,7 +27,9 @@ const nvidiaGroups = async () => {
     '--format=csv,noheader,nounits']);
   if (!out) return [];
   const rows = out.trim().split('\n').map((l) => l.split(',').map((c) => c.trim()));
-  const gpus = rows.map((r) => ({ index: Number(r[0]), product: r[1], totalMiB: Number(r[2]), usedMiB: Number(r[3]), freeMiB: Number(r[4]) }));
+  // GB10 (DGX Spark) reports [N/A] for memory fields; total memory is unified.
+  const gpus = rows.map((r) => ({ index: Number(r[0]), product: r[1], totalMiB: Number(r[2]), usedMiB: Number(r[3]), freeMiB: Number(r[4]) }))
+    .map((g) => (Number.isFinite(g.totalMiB) && g.totalMiB > 0) ? g : { ...g, totalMiB: 131072, usedMiB: 0, freeMiB: 131072 });
   const groups = new Map();
   for (const g of gpus) {
     const key = `${g.product}|${g.totalMiB}`;
