@@ -74,6 +74,7 @@ const renderModels = (models, stats) => {
   }).join('');
 };
 
+let harnessUrl = null;
 let snapshotCache = null;
 let busy = false;
 
@@ -88,6 +89,8 @@ const refresh = async () => {
   renderStats(snap.stats);
   renderModels(snap.models, snap.stats);
   $('dsh-state').textContent = snap.dsh.running ? `harness on :${snap.dsh.port}` : '';
+  // re-mount the harness silently if the page reloaded while it was running
+  if (snap.dsh.running && !harnessUrl && snapshotCache?.active) mountHarness(snap.dsh);
   return snap;
 };
 
@@ -110,17 +113,22 @@ const doAction = async (label, fn) => {
 const startHarness = async () => {
   const cwd = $('dsh-cwd').value.trim();
   const data = await doAction('Opening harness', () => hub.openDsh(cwd || undefined));
-  if (data?.url) mountHarness(data.url);
-  else if (typeof data === 'object' && data?.ok && data.url) mountHarness(data.url);
+  if (data?.url) mountHarness(data);
 };
 
-let harnessUrl = null;
-const mountHarness = (url) => {
-  harnessUrl = url;
+const mountHarness = (data) => {
+  // data.url is the same-origin proxy path (/dsh/); data.loginUrl carries the
+  // token that sets dsh's auth cookie. Route the token through the proxy so
+  // everything stays same-origin.
+  const tokened = data?.loginUrl
+    ? `/dsh/?${new URL(data.loginUrl, 'http://x').search}`
+    : data?.url;
+  if (!tokened) return;
+  harnessUrl = tokened;
   const isElectron = navigator.userAgent.includes('Electron');
   $('harness').innerHTML = isElectron
-    ? `<webview src="${esc(url)}" allowpopups></webview>`
-    : `<iframe src="${esc(url)}" style="width:100%;height:70vh;border:0"></iframe>`;
+    ? `<webview src="${esc(tokened)}" allowpopups></webview>`
+    : `<iframe src="${esc(tokened)}" style="width:100%;height:70vh;border:0"></iframe>`;
   const empty = $('harness-empty');
   if (empty) empty.remove();
 };

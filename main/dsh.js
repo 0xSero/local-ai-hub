@@ -79,13 +79,24 @@ const probe = () =>
 
 const logFile = () => path.join(HOME, 'web.log');
 
+// dsh web prints its tokened login URL to the log; the browser needs it once
+// to set the auth cookie. After that the cookie (30-day Max-Age) keeps working.
+const takeLoginUrl = () => {
+  try {
+    const text = fs.readFileSync(logFile(), 'utf8');
+    const m = text.match(/dsh web: (http:\/\/\S+?token=\S+)/g);
+    const line = m?.[m.length - 1];
+    return line ? line.replace(/^dsh web: /, '') : null;
+  } catch { return null; }
+};
+
 // Start `dsh web`. `dshBin` comes from the renderer (resolved via `which dsh`).
 // If dsh is missing the promise rejects with a clear message; nothing else is
 // installed or modified.
 const ensure = async ({ baseUrl, models, defaultModel, cwd, dshBin }) => {
   if (!dshBin || !fs.existsSync(dshBin)) throw new Error('dsh is not installed — install it with: npm i -g @deepseek-ai/dsh (or npx @deepseek-ai/dsh web)');
   writeSettings(baseUrl, models, defaultModel);
-  if (child || (await probe())) return { ok: true, url: `http://127.0.0.1:${PORT}/`, detail: child ? 'harness running' : 'something already answers on the dsh port' };
+  if (child || (await probe())) return { ok: true, url: `/dsh/`, port: PORT, loginUrl: takeLoginUrl(), detail: child ? 'harness running' : 'something already answers on the dsh port' };
   fs.mkdirSync(cwd, { recursive: true });
   addWorkspace(cwd);
   const env = {
@@ -110,7 +121,7 @@ const ensure = async ({ baseUrl, models, defaultModel, cwd, dshBin }) => {
   for (let i = 0; i < 120; i++) {
     await new Promise((r) => setTimeout(r, 500));
     if (!child) throw new Error('dsh web exited during startup; see ' + logFile());
-    if (await probe()) return { ok: true, url: `http://127.0.0.1:${PORT}/`, detail: 'harness ready' };
+    if (await probe()) return { ok: true, url: `/dsh/`, port: PORT, loginUrl: takeLoginUrl(), detail: 'harness ready' };
   }
   throw new Error(`dsh web did not answer on :${PORT} within 60 s; see ${logFile()}`);
 };
@@ -119,6 +130,6 @@ const stop = () => {
   if (child) { child.kill('SIGTERM'); child = null; }
 };
 
-const status = async () => ({ running: Boolean(child) || (await probe()), port: PORT, url: `http://127.0.0.1:${PORT}/` });
+const status = async () => ({ running: Boolean(child) || (await probe()), port: PORT, url: `/dsh/`, loginUrl: takeLoginUrl() });
 
 module.exports = { ensure, stop, status, writeSettings, writeSettingsAt, PORT };

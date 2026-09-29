@@ -8,6 +8,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFile } = require('node:child_process');
+// http is used both for the server and the dsh proxy
 
 const registry = require('./registry');
 const statsMod = require('./stats');
@@ -151,6 +152,13 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/javascript' }).end(js);
     return;
   }
+  if (req.method === 'GET' && url.pathname.startsWith('/dsh/')) {
+    // reverse-proxy the dsh web UI onto this origin so the iframe is same-origin
+    // and the token cookie applies cleanly.
+    const target = `http://127.0.0.1:${dsh.PORT}${url.pathname.replace(/^\/dsh/, '')}${url.search}`;
+    proxyWeb(req, res, target);
+    return;
+  }
   const m = url.pathname.match(/^\/rpc\/([\w-]+)$/);
   if (m && routes[m[1]]) {
     const arg = req.method === 'POST' ? await readBody(req) : undefined;
@@ -172,5 +180,19 @@ const readBody = (req) => new Promise((resolve, reject) => {
   req.on('end', () => { try { resolve(body ? JSON.parse(body) : undefined); } catch (e) { reject(e); } });
   req.on('error', reject);
 });
+
+// Minimal streaming proxy for the dsh web UI (http, loopback target).
+const proxyWeb = (req, res, target) => {
+  const u = new URL(target);
+  const headers = { ...req.headers, host: u.host };
+  delete headers['origin'];
+  delete headers['referer'];
+  const preq = http.request({ host: u.hostname, port: u.port, path: u.pathname + u.search, method: req.method, headers }, (pres) => {
+    res.writeHead(pres.statusCode ?? 502, pres.headers);
+    pres.pipe(res);
+  });
+  preq.on('error', () => { res.writeHead(502).end('dsh is not running'); });
+  req.pipe(preq);
+};
 
 server.listen(PORT, '0.0.0.0', () => console.log(`local-ai-hub web on http://0.0.0.0:${PORT} (loopback + tailnet only)`));
