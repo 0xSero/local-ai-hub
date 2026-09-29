@@ -129,15 +129,14 @@ test('recipesForHardware keeps only launchable validated docker recipes', () => 
   assert.deepEqual(list.map((r) => r.id), ['glm53-flash-nvfp4-rtxpro6000-sglang-tp4']);
 });
 
-test('incompatible hardware is visible but not ready', () => {
+test('incompatible hardware sees no recipes at all', () => {
   const appleDetected = { groups: [{ backend: 'metal', product: 'M4 Max 64GB', count: 1, memoryBytesEach: 64 * 1073741824, registryId: 'apple-m4-max-64gb', registryName: 'Apple M4 Max 64GB', devices: [{ index: 0, totalMiB: 65536, usedMiB: 0, freeMiB: 65536 }] }] };
-  const list = registry.recipesForHardware(appleDetected);
-  // Recipes for hardware this machine cannot host stay out of the list.
-  const ids = list.map((r) => r.id);
-  for (const id of ids) {
-    const r = registry.buildRecipe(id, appleDetected);
-    assert.equal(r.compatible, false);
-  }
+  // The nvidia recipe is dropped entirely on a metal-only machine.
+  assert.deepEqual(registry.recipesForHardware(appleDetected).map((r) => r.id), []);
+});
+
+test('a machine with no matching hardware sees no recipes', () => {
+  assert.deepEqual(registry.recipesForHardware({ groups: [] }), []);
 });
 
 test('mount boundary: host path outside ~/.cache refused', () => {

@@ -134,14 +134,17 @@ const buildRecipe = (recipeId, detected) => {
   };
 };
 
-// All docker recipes whose hardware the detected machine can host.
+// Only recipes this machine can actually host: the detected accelerators must
+// match the recipe's registry hardware record and provide enough devices.
 const recipesForHardware = (detected) => {
   const index = validateRegistry(REGISTRY_DIR);
   const out = [];
   for (const entry of index.recipes) {
     if (entry.status !== 'validated' || entry.launch_kind !== 'docker') continue;
     try {
-      out.push(buildRecipe(entry.id, detected));
+      const built = buildRecipe(entry.id, detected);
+      if (!built.compatible) continue; // other machines' recipes stay out of the list
+      out.push(built);
     } catch {
       // unpinned or unsafe recipes stay out of the list
     }

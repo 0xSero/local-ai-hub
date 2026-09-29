@@ -49,25 +49,25 @@ const renderStats = (stats) => {
 
 const renderModels = (models, stats) => {
   if (!models.length) {
-    $('models').innerHTML = '<div style="padding:12px 16px" class="muted">No docker recipes match this machine\'s accelerators yet. Sync the registry, or run it on a GPU host.</div>';
+    $('models').innerHTML = '<div style="padding:12px 16px" class="muted">No registry recipes run on this machine\'s accelerators. Sync the registry, or use it on a host with a registry-matched GPU.</div>';
     return;
   }
   $('models').innerHTML = models.map((m) => {
     const dl = m.downloaded ? '<span class="tag ok">downloaded</span>' : '<span class="tag">not downloaded</span>';
-    const compat = m.compatible ? '' : '<span class="tag">needs ' + esc(m.compatibility.hardwareName) + ` ×${m.compatibility.acceleratorCount}</span>`;
     const buttons = m.active
       ? `<button data-act="unload">Unload</button><button data-act="dsh" data-id="${esc(m.id)}">Harness</button>`
       : [
           m.downloaded
-            ? `<button data-act="load" data-id="${esc(m.id)}" ${m.compatible && stats.dockerReady ? '' : 'disabled'}>Load</button>`
+            ? `<button data-act="load" data-id="${esc(m.id)}" ${m.ready && stats.dockerReady ? '' : 'disabled'}>Load</button>`
             : `<button data-act="download" data-id="${esc(m.id)}" ${stats.dockerReady ? '' : 'disabled'}>Download (${gb(m.model.downloadBytes)})</button>`,
         ].join('');
+    const busyTag = m.compatible && !m.ready ? '<span class="tag warn">GPUs busy</span>' : '';
     return `<div class="model ${m.active ? 'active' : ''}">
       <div class="row1"><span class="name">${esc(m.model.name)}</span>
         <span class="tag">${esc(m.model.weightPrecision ?? m.model.weightFormat ?? '')}</span>
         <span class="tag">${esc(m.engine.name)}</span>
         <span class="tag">×${m.compatibility.acceleratorCount}</span>
-        ${m.active ? '<span class="tag ok">running</span>' : ''} ${dl} ${compat}</div>
+        ${m.active ? '<span class="tag ok">running</span>' : ''} ${dl} ${busyTag}</div>
       <div class="meta">${esc(m.compatibility.hardwareName)} · ${esc(m.model.repository)} · ${gi(m.model.downloadBytes)} · ctx ${m.serving.configuredMaxContextTokens.toLocaleString()}</div>
       <div class="actions">${buttons}</div>
     </div>`;
