@@ -121,7 +121,7 @@ const mountHarness = (data) => {
   // token that sets dsh's auth cookie. Route the token through the proxy so
   // everything stays same-origin.
   const tokened = data?.loginUrl
-    ? `/dsh/?${new URL(data.loginUrl, 'http://x').search}`
+    ? `/dsh/${new URL(data.loginUrl, 'http://x').search}`
     : data?.url;
   if (!tokened) return;
   harnessUrl = tokened;
