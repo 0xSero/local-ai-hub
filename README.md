@@ -1,3 +1,5 @@
+> **Retired 2026-09-30.** The desktop client moves into [local-ai-registry](https://github.com/0xSero/local-ai-registry) `app/`. This repo is archived and read-only.
+
 # Local AI Hub
 
 A simple cross-platform desktop app (Electron) that shows machine stats, lists the
